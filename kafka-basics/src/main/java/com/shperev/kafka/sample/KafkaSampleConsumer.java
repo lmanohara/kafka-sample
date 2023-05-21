@@ -3,6 +3,7 @@ package com.shperev.kafka.sample;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,17 +36,42 @@ public class KafkaSampleConsumer {
 
         kafkaConsumer.subscribe(List.of("demo-topic"));
 
-        //poll for data
-        while (true) {
+        final Thread mainThread = Thread.currentThread();
 
-            logger.info("polling");
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("Detected a shutdown, let's exit by calling consumer.wakeup()...");
+            kafkaConsumer.wakeup();
 
-            ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofMillis(1000));
-            for (ConsumerRecord<String, String> consumerRecord : consumerRecords
-            ) {
-                logger.info(String.format("Key: %s, Value: %s, Partition: %s, Offset: %s",
-                        consumerRecord.key(), consumerRecord.value(), consumerRecord.partition(), consumerRecord.offset()));
+            // join main thread to allow execution of the code in main thread
+            try {
+                mainThread.join();
+            } catch (InterruptedException e) {
+                logger.error("Interrupted the main thread", e);
             }
+
+        }));
+
+        try {
+            //poll for data
+            while (true) {
+
+                logger.info("polling");
+
+                ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofMillis(1000));
+                for (ConsumerRecord<String, String> consumerRecord : consumerRecords
+                ) {
+                    logger.info(String.format("Key: %s, Value: %s, Partition: %s, Offset: %s",
+                            consumerRecord.key(), consumerRecord.value(), consumerRecord.partition(), consumerRecord.offset()));
+                }
+            }
+        } catch (WakeupException e) {
+            logger.info("Consumer is starting to shutdown");
+        } catch (Exception e) {
+            logger.error("Unexpected exception is in the consumer", e);
+        } finally {
+            kafkaConsumer.close(); // close the consumer, this will also commit the offset
+            logger.info("The consumer now gracefully shutdown");
         }
+
     }
 }
