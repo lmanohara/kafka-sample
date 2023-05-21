@@ -72,6 +72,5 @@ public class KafkaSampleConsumer {
             kafkaConsumer.close(); // close the consumer, this will also commit the offset
             logger.info("The consumer now gracefully shutdown");
         }
-
     }
 }
