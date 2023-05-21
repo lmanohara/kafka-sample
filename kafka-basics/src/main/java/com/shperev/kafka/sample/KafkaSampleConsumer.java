@@ -1,0 +1,51 @@
+package com.shperev.kafka.sample;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Properties;
+
+public class KafkaSampleConsumer {
+
+    public static final Logger logger = LoggerFactory.getLogger(KafkaSampleProducer.class.getName());
+
+    public static void main(String[] args) {
+
+        // consumer group
+        String consumerGroupId = "java-application";
+
+        // create kafka producer properties
+        Properties consumerProperties = new Properties();
+        consumerProperties.setProperty("bootstrap.servers", "127.0.0.1:9092");
+
+        // consumer properties
+        consumerProperties.setProperty("key.deserializer", StringDeserializer.class.getName());
+        consumerProperties.setProperty("value.deserializer", StringDeserializer.class.getName());
+        consumerProperties.setProperty("group.id", consumerGroupId);
+        consumerProperties.setProperty("auto.offset.reset", "earliest");
+
+        // create consumer
+        KafkaConsumer<String, String> kafkaConsumer = new KafkaConsumer<>(consumerProperties);
+
+        kafkaConsumer.subscribe(List.of("demo-topic"));
+
+        //poll for data
+        while (true) {
+
+            logger.info("polling");
+
+            ConsumerRecords<String, String> consumerRecords = kafkaConsumer.poll(Duration.ofMillis(1000));
+            for (ConsumerRecord<String, String> consumerRecord : consumerRecords
+            ) {
+                logger.info(String.format("Key: %s, Value: %s, Partition: %s, Offset: %s",
+                        consumerRecord.key(), consumerRecord.value(), consumerRecord.partition(), consumerRecord.offset()));
+            }
+        }
+    }
+}
