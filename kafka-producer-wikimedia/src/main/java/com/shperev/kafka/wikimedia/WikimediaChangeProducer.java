@@ -24,7 +24,11 @@ public class WikimediaChangeProducer {
         // producer properties
         producerProperties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         producerProperties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProperties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, "400");
+
+        // set producer for high throughput batching
+        producerProperties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        producerProperties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, String.valueOf(32 * 1024));
+        producerProperties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
 
         // crate the kafka producer
         KafkaProducer<String, String> kafkaProducer = new KafkaProducer<>(producerProperties);
