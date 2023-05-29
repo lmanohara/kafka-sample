@@ -92,4 +92,4 @@ services:
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
 
 volumes:
-  conduktor_data: {}
+  conduktor_data: { }

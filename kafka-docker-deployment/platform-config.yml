@@ -12,7 +12,7 @@ clusters:
       url: "$SR_SERVER"
       ignoreUntrustedCertificate: false
       properties:
-    labels: {}
+    labels: { }
 #    kafkaConnects:
 #      - url: http://kafka-connect:8083
 #        name: full stack kafka connect
