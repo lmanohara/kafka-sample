@@ -14,7 +14,7 @@ import java.util.Properties;
 
 public class KafkaSampleConsumer {
 
-    public static final Logger logger = LoggerFactory.getLogger(KafkaSampleProducer.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(KafkaSampleProducer.class.getName());
 
     public static void main(String[] args) {
 
