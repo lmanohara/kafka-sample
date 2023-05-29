@@ -7,6 +7,7 @@ import java.util.Collections;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.errors.WakeupException;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -29,6 +30,8 @@ public class OpenSearchConsumer {
 
     RestHighLevelClient openSearchClient = OpenSearchConnection.create();
     KafkaConsumer<String, String> wikimediaKafkaConsumer = WikimediaKafkaConsumer.create();
+
+    createShutDownHook(wikimediaKafkaConsumer);
 
     try (openSearchClient;
         wikimediaKafkaConsumer) {
@@ -53,35 +56,75 @@ public class OpenSearchConsumer {
       while (true) {
         ConsumerRecords<String, String> records =
             wikimediaKafkaConsumer.poll(Duration.ofMillis(3000));
+        int recordCounts = records.count();
+        logger.info(String.format("Received %s records(s)", recordCounts));
 
         for (ConsumerRecord<String, String> record : records) {
-          String idempotentId = extractFromMessage(record.value());
-
-          IndexRequest indexRequest =
-              new IndexRequest(wikimediaIndex)
-                  .source(record.value(), XContentType.JSON)
-                  .id(idempotentId);
-
-          try {
-            bulkRequest.add(indexRequest);
-          } catch (Exception e) {
-            logger.error(e.getMessage());
-          }
+          IndexRequest indexRequest = processKafkaRecord(wikimediaIndex, record);
+          bulkRequest.add(indexRequest);
         }
 
-        if (bulkRequest.numberOfActions() > 0) {
-          BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-          logger.info(
-              String.format("Bulk response, response length: %s", bulkResponse.getItems().length));
-
-          try {
-            Thread.sleep(1000);
-          } catch (InterruptedException e) {
-            logger.error(e.getMessage());
-          }
-          wikimediaKafkaConsumer.commitSync();
-        }
+        // Make bulk request to OpenSearch
+        makeBulkRequest(openSearchClient, wikimediaKafkaConsumer, bulkRequest);
       }
+    } catch (WakeupException e) {
+      logger.info("Consumer is starting to shutdown");
+    } catch (Exception e) {
+      logger.error("Unexpected exception is in the consumer", e);
+    } finally {
+      wikimediaKafkaConsumer.close(); // close the consumer, this will also commit the offset
+      logger.info("The consumer now gracefully shutdown");
+      openSearchClient.close();
+    }
+  }
+
+  private static void createShutDownHook(KafkaConsumer<String, String> wikimediaKafkaConsumer) {
+    final Thread mainThread = Thread.currentThread();
+
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  logger.info("Detected a shutdown, let's exit by calling consumer.wakeup()...");
+                  wikimediaKafkaConsumer.wakeup();
+
+                  // join main thread to allow execution of the code in main thread
+                  try {
+                    mainThread.join();
+                  } catch (InterruptedException e) {
+                    logger.error("Interrupted the main thread", e);
+                  }
+                }));
+  }
+
+  private static IndexRequest processKafkaRecord(
+      String wikimediaIndex, ConsumerRecord<String, String> record) {
+    String idempotentId = extractFromMessage(record.value());
+
+    IndexRequest indexRequest =
+        new IndexRequest(wikimediaIndex).source(record.value(), XContentType.JSON).id(idempotentId);
+
+    return indexRequest;
+  }
+
+  private static void makeBulkRequest(
+      RestHighLevelClient openSearchClient,
+      KafkaConsumer<String, String> wikimediaKafkaConsumer,
+      BulkRequest bulkRequest)
+      throws IOException {
+    if (bulkRequest.numberOfActions() > 0) {
+      BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+      logger.info(
+          String.format("Bulk response, response length: %s", bulkResponse.getItems().length));
+
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        logger.error(e.getMessage());
+      }
+
+      wikimediaKafkaConsumer.commitSync();
+      logger.info("Offsets have been committed!");
     }
   }
 
