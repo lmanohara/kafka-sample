@@ -27,6 +27,7 @@ public class WikimediaKafkaConsumer {
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProperties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
     consumerProperties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+    consumerProperties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
     // create consumer
     return new KafkaConsumer<>(consumerProperties);

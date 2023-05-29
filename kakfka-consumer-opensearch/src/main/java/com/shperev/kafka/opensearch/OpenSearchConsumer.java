@@ -7,8 +7,9 @@ import java.util.Collections;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -46,6 +47,8 @@ public class OpenSearchConsumer {
         logger.info("The wikimedia index has been created");
       }
 
+      BulkRequest bulkRequest = new BulkRequest();
+
       // Insert record into OpenSearch
       while (true) {
         ConsumerRecords<String, String> records =
@@ -60,12 +63,23 @@ public class OpenSearchConsumer {
                   .id(idempotentId);
 
           try {
-            IndexResponse indexResponse =
-                openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
-            logger.info(indexResponse.getId());
+            bulkRequest.add(indexRequest);
           } catch (Exception e) {
             logger.error(e.getMessage());
           }
+        }
+
+        if (bulkRequest.numberOfActions() > 0) {
+          BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+          logger.info(
+              String.format("Bulk response, response length: %s", bulkResponse.getItems().length));
+
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e) {
+            logger.error(e.getMessage());
+          }
+          wikimediaKafkaConsumer.commitSync();
         }
       }
     }
