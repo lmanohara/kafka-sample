@@ -2,13 +2,13 @@ package com.shperev.kafka.wikimedia.processor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shperev.kafka.wikimedia.processor.internal.InputStreamProcessor;
 import java.time.Duration;
 import java.util.Map;
-import java.util.function.Consumer;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.kstream.*;
 
-public class EventCountTimeSeriesBuilder implements Consumer<KStream<String, String>> {
+public class EventCountTimeSeriesBuilder implements InputStreamProcessor<String, String> {
 
   private static final String TIMESERIES_TOPIC = "wikimedia-stats-timeseries";
   private static final String TIMESERIES_STORE = "event-count-store";
@@ -19,9 +19,9 @@ public class EventCountTimeSeriesBuilder implements Consumer<KStream<String, Str
   }
 
   @Override
-  public void accept(KStream<String, String> inputSteam) {
+  public void process(KStream<String, String> inputStream) {
     final TimeWindows timeWindows = TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(10));
-    inputSteam
+    inputStream
         .selectKey((key, value) -> "key-to-group")
         .groupByKey()
         .windowedBy(timeWindows)

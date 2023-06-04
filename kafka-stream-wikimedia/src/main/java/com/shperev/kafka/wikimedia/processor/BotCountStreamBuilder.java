@@ -3,12 +3,12 @@ package com.shperev.kafka.wikimedia.processor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shperev.kafka.wikimedia.processor.internal.InputStreamProcessor;
 import java.io.IOException;
 import java.util.Map;
-import java.util.function.Consumer;
 import org.apache.kafka.streams.kstream.*;
 
-public class BotCountStreamBuilder implements Consumer<KStream<String, String>> {
+public class BotCountStreamBuilder implements InputStreamProcessor<String, String> {
 
   private static final String BOT_COUNT_STORE = "bot-count-store";
   private static final String BOT_COUNT_TOPIC = "wikimedia-stats-bots";
@@ -20,7 +20,7 @@ public class BotCountStreamBuilder implements Consumer<KStream<String, String>> 
   }
 
   @Override
-  public void accept(KStream<String, String> inputStream) {
+  public void process(KStream<String, String> inputStream) {
     inputStream
         .mapValues(
             changeJson -> {

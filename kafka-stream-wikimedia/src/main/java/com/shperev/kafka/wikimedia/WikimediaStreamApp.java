@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shperev.kafka.wikimedia.processor.BotCountStreamBuilder;
 import com.shperev.kafka.wikimedia.processor.EventCountTimeSeriesBuilder;
 import com.shperev.kafka.wikimedia.processor.WebsiteCountStreamBuilder;
+import com.shperev.kafka.wikimedia.processor.internal.InputStreamProcessor;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -38,17 +39,18 @@ public class WikimediaStreamApp {
 
     final ObjectMapper objectMapper = new ObjectMapper();
 
-    BotCountStreamBuilder botCountStreamBuilder = new BotCountStreamBuilder(objectMapper);
-    botCountStreamBuilder.accept(changeJsonStream);
+    InputStreamProcessor<String, String> botCountStreamBuilder =
+        new BotCountStreamBuilder(objectMapper);
+    botCountStreamBuilder.process(changeJsonStream);
 
-    EventCountTimeSeriesBuilder eventCountTimeSeriesBuilder =
+    InputStreamProcessor<String, String> eventCountTimeSeriesBuilder =
         new EventCountTimeSeriesBuilder(objectMapper);
-    eventCountTimeSeriesBuilder.accept(changeJsonStream);
+    eventCountTimeSeriesBuilder.process(changeJsonStream);
 
-    WebsiteCountStreamBuilder websiteCountStreamBuilder =
+    InputStreamProcessor<String, String> websiteCountStreamBuilder =
         new WebsiteCountStreamBuilder(objectMapper);
 
-    websiteCountStreamBuilder.accept(changeJsonStream);
+    websiteCountStreamBuilder.process(changeJsonStream);
 
     final Topology appTopology = builder.build();
     logger.info("Topology: {}", appTopology.describe());
